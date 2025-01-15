@@ -3,6 +3,7 @@ package cache
 import (
 	"fmt"
 	"io"
+	"math"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -187,7 +188,7 @@ func (f *fileSystemCache) Put(r io.Reader, contentMetadata ContentMetadata, key 
 		return 0, fmt.Errorf("cannot write Content-Encoding to %q: %w", fn, err)
 	}
 
-	cnt, err := io.Copy(file, r)
+	cnt, err := io.Copy(file, r) //nolint:gosec
 	if err != nil {
 		return 0, fmt.Errorf("cache %q: cannot write results to file: %s : %w", f.Name(), key, err)
 	}
@@ -246,7 +247,7 @@ func (f *fileSystemCache) clean() {
 	var removedItems uint64
 	err := walkDir(f.dir, func(fi os.FileInfo) {
 		mt := fi.ModTime()
-		fs := uint64(fi.Size())
+		fs := uint64(fi.Size()) //nolint:gosec
 		if currentTime.Sub(mt) > expire {
 			fn := f.fileInfoPath(fi)
 			err := os.Remove(fn)
@@ -287,7 +288,7 @@ func (f *fileSystemCache) clean() {
 				return
 			}
 
-			fs := uint64(fi.Size())
+			fs := uint64(fi.Size()) //nolint:gosec
 			fn := f.fileInfoPath(fi)
 			if err := os.Remove(fn); err != nil {
 				log.Errorf("cache %q: cannot remove file %q: %s", f.Name(), fn, err)
@@ -318,7 +319,10 @@ func (f *fileSystemCache) clean() {
 
 // writeHeader encodes headers in little endian
 func writeHeader(w io.Writer, s string) error {
-	n := uint32(len(s))
+	if len(s) > math.MaxUint32 {
+		return ErrTooBig
+	}
+	n := uint32(len(s)) //nolint:gosec
 
 	b := make([]byte, 0, n+4)
 	b = append(b, byte(n>>24), byte(n>>16), byte(n>>8), byte(n))
