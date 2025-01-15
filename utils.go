@@ -46,6 +46,12 @@ func getAuth(req *http.Request) (string, string) {
 	return defaultUser, ""
 }
 
+func getPostHogDimensions(req *http.Request) (string, int64, error) {
+	productName := req.Header.Get("X-PostHog-Product")
+	teamId, err := strconv.ParseInt(req.Header.Get("X-PostHog-Team"), 10, 64)
+	return productName, teamId, err
+}
+
 // getSessionId retrieves session id
 func getSessionId(req *http.Request) string {
 	params := req.URL.Query()
