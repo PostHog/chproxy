@@ -235,7 +235,7 @@ func (r *redisCache) decodeMetadata(b []byte) (*ContentMetadata, int, error) {
 	}
 	cLength := uint64(b[7]) | (uint64(b[6]) << 8) | (uint64(b[5]) << 16) | (uint64(b[4]) << 24) | uint64(b[3])<<32 | (uint64(b[2]) << 40) | (uint64(b[1]) << 48) | (uint64(b[0]) << 56)
 	if cLength > math.MaxInt64 {
-		return nil, 0, fmt.Errorf("redis metadata length: %v", ErrTooBig)
+		return nil, 0, fmt.Errorf("redis metadata length: %w", ErrTooBig)
 	}
 	offset := 8
 	cType, sizeCType, err := r.decodeString(b[offset:])
@@ -397,7 +397,7 @@ func (r *redisStreamReader) readRangeFromRedis(bufSize int) error {
 	ctx, cancelFunc := context.WithTimeout(context.Background(), getTimeout)
 	defer cancelFunc()
 	if r.redisOffset+uint64(bufSize) > math.MaxInt64 { //nolint:gosec
-		return fmt.Errorf("redis offset and size: %v", ErrTooBig)
+		return fmt.Errorf("redis offset and size: %w", ErrTooBig)
 	}
 	newBuf, err := r.client.GetRange(ctx, r.key, int64(r.redisOffset), int64(r.redisOffset+uint64(bufSize))).Result() //nolint:gosec
 	r.redisOffset += uint64(len(newBuf))                                                                              //nolint:gosec
