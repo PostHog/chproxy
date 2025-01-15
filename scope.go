@@ -939,7 +939,7 @@ func (r *replica) getHostSticky(sessionId string) *topology.Node {
 // Always returns non-nil.
 func (r *replica) getHost() *topology.Node {
 	idx := atomic.AddUint32(&r.nextHostIdx, 1)
-	n := uint32(len(r.hosts))
+	n := uint32(len(r.hosts)) //nolint:gosec
 	if n == 1 {
 		return r.hosts[0]
 	}
