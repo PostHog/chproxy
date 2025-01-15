@@ -255,11 +255,11 @@ func (s *scope) checkTokenFreeRateLimiters() error {
 	// is decremented on error below after per-minute zeroing
 	// in rateLimiter.run.
 	// These races become innocent with the given check.
-	if (s.user.reqPerMin > 0 && int32(uRPM) > 0 && uRPM > uint32(s.user.reqPerMin)) || s.user.reqPerMin < 0 {
+	if (s.user.reqPerMin > 0 && uRPM > 0 && uRPM > uint32(s.user.reqPerMin)) || s.user.reqPerMin < 0 {
 		err = fmt.Errorf("rate limit for user %q is exceeded: requests_per_minute limit: %d",
 			s.user.name, s.user.reqPerMin)
 	}
-	if (s.clusterUser.reqPerMin > 0 && int32(cRPM) > 0 && cRPM > uint32(s.clusterUser.reqPerMin)) || s.clusterUser.reqPerMin < 0 {
+	if (s.clusterUser.reqPerMin > 0 && cRPM > 0 && cRPM > uint32(s.clusterUser.reqPerMin)) || s.clusterUser.reqPerMin < 0 {
 		err = fmt.Errorf("rate limit for cluster user %q is exceeded: requests_per_minute limit: %d",
 			s.clusterUser.name, s.clusterUser.reqPerMin)
 	}
@@ -622,7 +622,7 @@ func (up usersProfile) newUser(u config.User) (*user, error) {
 		reqPerMin:                 u.ReqPerMin,
 		queueCh:                   queueCh,
 		maxQueueTime:              time.Duration(u.MaxQueueTime),
-		reqPacketSizeTokenLimiter: rate.NewLimiter(rate.Limit(u.ReqPacketSizeTokensRate), int(u.ReqPacketSizeTokensBurst)),
+		reqPacketSizeTokenLimiter: rate.NewLimiter(rate.Limit(u.ReqPacketSizeTokensRate), int(u.ReqPacketSizeTokensBurst)), //nolint:gosec
 		reqPacketSizeTokensBurst:  u.ReqPacketSizeTokensBurst,
 		reqPacketSizeTokensRate:   u.ReqPacketSizeTokensRate,
 		allowedNetworks:           u.AllowedNetworks,
@@ -686,7 +686,7 @@ func newClusterUser(cu config.ClusterUser) *clusterUser {
 		maxConcurrentQueries:      cu.MaxConcurrentQueries,
 		maxExecutionTime:          time.Duration(cu.MaxExecutionTime),
 		reqPerMin:                 cu.ReqPerMin,
-		reqPacketSizeTokenLimiter: rate.NewLimiter(rate.Limit(cu.ReqPacketSizeTokensRate), int(cu.ReqPacketSizeTokensBurst)),
+		reqPacketSizeTokenLimiter: rate.NewLimiter(rate.Limit(cu.ReqPacketSizeTokensRate), int(cu.ReqPacketSizeTokensBurst)), //nolint:gosec
 		reqPacketSizeTokensBurst:  cu.ReqPacketSizeTokensBurst,
 		reqPacketSizeTokensRate:   cu.ReqPacketSizeTokensRate,
 		queueCh:                   queueCh,

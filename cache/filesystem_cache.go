@@ -193,7 +193,7 @@ func (f *fileSystemCache) Put(r io.Reader, contentMetadata ContentMetadata, key 
 		return 0, fmt.Errorf("cache %q: cannot write results to file: %s : %w", f.Name(), key, err)
 	}
 
-	atomic.AddUint64(&f.stats.Size, uint64(cnt))
+	atomic.AddUint64(&f.stats.Size, uint64(cnt)) //nolint:gosec
 	atomic.AddUint64(&f.stats.Items, 1)
 	return f.expire, nil
 }

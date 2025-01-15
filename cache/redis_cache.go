@@ -71,7 +71,7 @@ func (r *redisCache) nbOfKeys() uint64 {
 	if err != nil {
 		log.Errorf("failed to fetch nb of keys in redis: %s", err)
 	}
-	return uint64(nbOfKeys)
+	return uint64(nbOfKeys) //nolint:gosec
 }
 
 func (r *redisCache) nbOfBytes() uint64 {
@@ -396,7 +396,7 @@ func (r *redisStreamReader) Read(destBuf []byte) (n int, err error) {
 func (r *redisStreamReader) readRangeFromRedis(bufSize int) error {
 	ctx, cancelFunc := context.WithTimeout(context.Background(), getTimeout)
 	defer cancelFunc()
-	if r.redisOffset+uint64(bufSize) > math.MaxInt64 {
+	if r.redisOffset+uint64(bufSize) > math.MaxInt64 { //nolint:gosec
 		return fmt.Errorf("redis offset and size: %v", ErrTooBig)
 	}
 	newBuf, err := r.client.GetRange(ctx, r.key, int64(r.redisOffset), int64(r.redisOffset+uint64(bufSize))).Result() //nolint:gosec
