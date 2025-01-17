@@ -20,6 +20,7 @@ type HeartBeat interface {
 type heartBeatOpts struct {
 	defaultUser     string
 	defaultPassword string
+	client          *http.Client
 }
 
 type Option interface {
@@ -43,6 +44,18 @@ func WithDefaultUser(user, password string) Option {
 	}
 }
 
+type customHttpClient struct {
+	client *http.Client
+}
+
+func (c customHttpClient) apply(opts *heartBeatOpts) {
+	opts.client = c.client
+}
+
+func WithHttpClient(client *http.Client) Option {
+	return customHttpClient{client}
+}
+
 type heartBeat struct {
 	interval time.Duration
 	timeout  time.Duration
@@ -50,13 +63,16 @@ type heartBeat struct {
 	response string
 	user     string
 	password string
+	client   *http.Client
 }
 
 // User credentials are not needed
 const defaultEndpoint string = "/ping"
 
 func NewHeartbeat(c config.HeartBeat, options ...Option) HeartBeat {
-	opts := &heartBeatOpts{}
+	opts := &heartBeatOpts{
+		client: http.DefaultClient,
+	}
 	for _, o := range options {
 		o.apply(opts)
 	}
@@ -66,6 +82,7 @@ func NewHeartbeat(c config.HeartBeat, options ...Option) HeartBeat {
 		timeout:  time.Duration(c.Timeout),
 		request:  c.Request,
 		response: c.Response,
+		client:   opts.client,
 	}
 
 	if c.Request != defaultEndpoint {
@@ -98,7 +115,7 @@ func (hb *heartBeat) IsHealthy(ctx context.Context, addr string) error {
 	req = req.WithContext(ctx)
 
 	startTime := time.Now()
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := hb.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("cannot send request in %s: %w", time.Since(startTime), err)
 	}

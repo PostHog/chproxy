@@ -48,6 +48,7 @@ type reverseProxy struct {
 	maxIdleConns        int
 	maxIdleConnsPerHost int
 	maxErrorReasonSize  int64
+	transport           *http.Transport
 }
 
 func newReverseProxy(cfgCp *config.HTTPClientConfig) *reverseProxy {
@@ -87,6 +88,7 @@ func newReverseProxy(cfgCp *config.HTTPClientConfig) *reverseProxy {
 		reloadWG:            sync.WaitGroup{},
 		maxIdleConns:        cfgCp.ConnectionPool.MaxIdleConnsPerHost,
 		maxIdleConnsPerHost: cfgCp.ConnectionPool.MaxIdleConnsPerHost,
+		transport:           transport,
 	}
 }
 
@@ -635,7 +637,14 @@ func (rp *reverseProxy) applyConfig(cfg *config.Config) error {
 	rp.configLock.Lock()
 	defer rp.configLock.Unlock()
 
-	clusters, err := newClusters(cfg.Clusters)
+	client := http.DefaultClient
+	if cfg.HTTPClient.InsecureSkipVerify {
+		client = &http.Client{}
+		*client = *http.DefaultClient
+		client.Transport = rp.transport
+	}
+
+	clusters, err := newClusters(cfg.Clusters, client)
 	if err != nil {
 		return err
 	}
