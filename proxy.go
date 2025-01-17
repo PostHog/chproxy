@@ -629,7 +629,9 @@ func calcQueryParamsHash(origParams url.Values) uint32 {
 // applyConfig applies the given cfg to reverseProxy.
 //
 // New config is applied only if non-nil error returned.
-// Otherwise old config version is kept.
+// Otherwise, old config version is kept.
+//
+//nolint:cyclop  // TODO consider complexity
 func (rp *reverseProxy) applyConfig(cfg *config.Config) error {
 	// configLock protects from concurrent calls to applyConfig
 	// by serializing such calls.
