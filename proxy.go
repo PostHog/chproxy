@@ -70,7 +70,7 @@ func newReverseProxy(cfgCp *config.HTTPClientConfig) *reverseProxy {
 
 	if cfgCp.InsecureSkipVerify {
 		transport.TLSClientConfig = &tls.Config{
-			InsecureSkipVerify: cfgCp.InsecureSkipVerify,
+			InsecureSkipVerify: true, //nolint:gosec
 		}
 	}
 

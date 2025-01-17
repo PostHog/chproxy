@@ -8,6 +8,9 @@ import (
 	"io"
 	"math/rand"
 	"net"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"os"
 	"regexp"
 	"runtime"
@@ -17,16 +20,10 @@ import (
 	"testing"
 	"time"
 
-	"golang.org/x/time/rate"
-
 	"github.com/contentsquare/chproxy/cache"
-
-	"net/http"
-	"net/http/httptest"
-	"net/url"
-
 	"github.com/contentsquare/chproxy/config"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/time/rate"
 )
 
 var nbHeavyRequestsInflight int64 = 0

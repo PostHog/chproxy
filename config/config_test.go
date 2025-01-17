@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/contentsquare/chproxy/global/types"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/mohae/deepcopy"
