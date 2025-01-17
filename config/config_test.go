@@ -943,10 +943,6 @@ http_client:
 `, redisPort)
 	tested := fullConfig.String()
 	assert.Equal(t, expected, tested)
-	//if tested != expected {
-	//	t.Fatalf("the stringify version of fullConfig is not what it's expected: %s",
-	//		cmp.Diff(tested, expected))
-	//}
 }
 
 func TestConfigReplaceEnvVars(t *testing.T) {
