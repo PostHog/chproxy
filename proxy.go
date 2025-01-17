@@ -48,6 +48,7 @@ type reverseProxy struct {
 	maxIdleConns        int
 	maxIdleConnsPerHost int
 	maxErrorReasonSize  int64
+	transport           *http.Transport
 }
 
 func newReverseProxy(cfgCp *config.HTTPClientConfig) *reverseProxy {
@@ -87,6 +88,7 @@ func newReverseProxy(cfgCp *config.HTTPClientConfig) *reverseProxy {
 		reloadWG:            sync.WaitGroup{},
 		maxIdleConns:        cfgCp.ConnectionPool.MaxIdleConnsPerHost,
 		maxIdleConnsPerHost: cfgCp.ConnectionPool.MaxIdleConnsPerHost,
+		transport:           transport,
 	}
 }
 
@@ -627,7 +629,9 @@ func calcQueryParamsHash(origParams url.Values) uint32 {
 // applyConfig applies the given cfg to reverseProxy.
 //
 // New config is applied only if non-nil error returned.
-// Otherwise old config version is kept.
+// Otherwise, old config version is kept.
+//
+//nolint:cyclop  // TODO consider complexity
 func (rp *reverseProxy) applyConfig(cfg *config.Config) error {
 	// configLock protects from concurrent calls to applyConfig
 	// by serializing such calls.
@@ -635,7 +639,14 @@ func (rp *reverseProxy) applyConfig(cfg *config.Config) error {
 	rp.configLock.Lock()
 	defer rp.configLock.Unlock()
 
-	clusters, err := newClusters(cfg.Clusters)
+	client := http.DefaultClient
+	if cfg.HTTPClient.InsecureSkipVerify {
+		client = &http.Client{}
+		*client = *http.DefaultClient
+		client.Transport = rp.transport
+	}
+
+	clusters, err := newClusters(cfg.Clusters, client)
 	if err != nil {
 		return err
 	}

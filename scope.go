@@ -782,7 +782,7 @@ type cluster struct {
 	retryNumber int
 }
 
-func newCluster(c config.Cluster) (*cluster, error) {
+func newCluster(c config.Cluster, client *http.Client) (*cluster, error) {
 	clusterUsers := make(map[string]*clusterUser, len(c.ClusterUsers))
 	for _, cu := range c.ClusterUsers {
 		if _, ok := clusterUsers[cu.Name]; ok {
@@ -791,7 +791,8 @@ func newCluster(c config.Cluster) (*cluster, error) {
 		clusterUsers[cu.Name] = newClusterUser(cu)
 	}
 
-	heartBeat := heartbeat.NewHeartbeat(c.HeartBeat, heartbeat.WithDefaultUser(c.ClusterUsers[0].Name, c.ClusterUsers[0].Password))
+	heartBeat := heartbeat.NewHeartbeat(c.HeartBeat, heartbeat.WithDefaultUser(c.ClusterUsers[0].Name,
+		c.ClusterUsers[0].Password), heartbeat.WithHttpClient(client))
 
 	newC := &cluster{
 		name:                  c.Name,
@@ -811,13 +812,13 @@ func newCluster(c config.Cluster) (*cluster, error) {
 	return newC, nil
 }
 
-func newClusters(cfg []config.Cluster) (map[string]*cluster, error) {
+func newClusters(cfg []config.Cluster, client *http.Client) (map[string]*cluster, error) {
 	clusters := make(map[string]*cluster, len(cfg))
 	for _, c := range cfg {
 		if _, ok := clusters[c.Name]; ok {
 			return nil, fmt.Errorf("duplicate config for cluster %q", c.Name)
 		}
-		tmpC, err := newCluster(c)
+		tmpC, err := newCluster(c, client)
 		if err != nil {
 			return nil, fmt.Errorf("cannot initialize cluster %q: %w", c.Name, err)
 		}
