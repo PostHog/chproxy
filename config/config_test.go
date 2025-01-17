@@ -3,7 +3,6 @@ package config
 import (
 	"bytes"
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"net"
 	"os"
 	"testing"
@@ -13,6 +12,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/mohae/deepcopy"
+	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v2"
 )
 
