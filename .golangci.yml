@@ -13,7 +13,7 @@ linters:
     - errcheck
     - errname
     - errorlint
-    - exportloopref
+    - copyloopvar
     - gochecknoinits
     - goconst
     - gocritic
@@ -53,7 +53,6 @@ linters:
     - funlen
     - gocognit
     - gofumpt
-    - ifshort
     - nestif
     - nolintlint
     - revive
@@ -64,7 +63,6 @@ linters:
 
     # Disabled with a reason
     - gochecknoglobals # incompatible with the way we define our flags currently
-    - maligned # checker not supported anymore
     - noctx # disabled because we do not plan to distribute this code as a library
     - prealloc # we are not after some perf
-    - tagliatelle # disabled because we are dependant on external API that do not follow the right naming
+    - tagliatelle # disabled because we are dependent on external API that do not follow the right naming
