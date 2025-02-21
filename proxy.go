@@ -116,14 +116,6 @@ func (rp *reverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	log.Debugf("%s: request start", s)
 	requestSum.With(s.labels).Inc()
 
-	if s.user.allowCORS {
-		origin := req.Header.Get("Origin")
-		if len(origin) == 0 {
-			origin = "*"
-		}
-		rw.Header().Set("Access-Control-Allow-Origin", origin)
-	}
-
 	req.Body = &statReadCloser{
 		ReadCloser: req.Body,
 		bytesRead:  requestBodyBytes.With(s.labels),
@@ -144,6 +136,14 @@ func (rp *reverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	// publish session_id if needed
 	if s.sessionId != "" {
 		rw.Header().Set("X-ClickHouse-Server-Session-Id", s.sessionId)
+	}
+
+	if s.user.allowCORS {
+		origin := req.Header.Get("Origin")
+		if len(origin) == 0 {
+			origin = "*"
+		}
+		rw.Header().Set("Access-Control-Allow-Origin", origin)
 	}
 
 	q, shouldReturnFromCache, err := shouldRespondFromCache(s, origParams, req)
@@ -211,26 +211,28 @@ func executeWithRetry(
 	monitorDuration func(float64),
 	monitorRetryRequestInc func(prometheus.Labels),
 ) (float64, error) {
-	startTime := time.Now()
-	var since float64
+	var (
+		startTime = time.Now()
+		since     float64
+
+		body []byte
+		err  error
+	)
 
 	// Use readAndRestoreRequestBody to read the entire request body into a byte slice,
 	// and to restore req.Body so that it can be reused later in the code.
-	body, err := readAndRestoreRequestBody(req)
-	if err != nil {
-		since := time.Since(startTime).Seconds()
-		return since, err
+	if maxRetry > 0 {
+		if body, err = readAndRestoreRequestBody(req); err != nil {
+			since := time.Since(startTime).Seconds()
+			return since, err
+		}
 	}
 
 	numRetry := 0
 	for {
 		rp(rw, req)
 
-		// Restore req.Body after it's consumed by 'rp' for potential reuse.
-		req.Body = io.NopCloser(bytes.NewBuffer(body))
-
-		err := ctx.Err()
-		if err != nil {
+		if err = ctx.Err(); err != nil {
 			since = time.Since(startTime).Seconds()
 
 			return since, err
@@ -278,6 +280,8 @@ func executeWithRetry(
 			since = time.Since(startTime).Seconds()
 			break
 		}
+		// Restore req.Body after it's consumed by 'rp' for potential reuse.
+		req.Body = io.NopCloser(bytes.NewBuffer(body))
 		numRetry++
 	}
 	return since, nil
@@ -388,8 +392,7 @@ func (rp *reverseProxy) serveFromCache(s *scope, srw *statResponseWriter, req *h
 	startTime := time.Now()
 	userCache := s.user.cache
 	// Try to serve from cache
-	cachedData, err := userCache.Get(key)
-	if err == nil {
+	if cachedData, err := userCache.Get(key); err == nil {
 		// The response has been successfully served from cache.
 		defer cachedData.Data.Close()
 		cacheHit.With(labels).Inc()
@@ -398,32 +401,30 @@ func (rp *reverseProxy) serveFromCache(s *scope, srw *statResponseWriter, req *h
 		_ = RespondWithData(srw, cachedData.Data, cachedData.ContentMetadata, cachedData.Ttl, XCacheHit, http.StatusOK, labels)
 		return
 	}
+
 	// Await for potential result from concurrent query
-	transactionStatus, err := userCache.AwaitForConcurrentTransaction(key)
-	if err != nil {
+	if transactionStatus, err := userCache.AwaitForConcurrentTransaction(key); err != nil {
 		// log and continue processing
 		log.Errorf("failed to await for concurrent transaction due to: %v", err)
-	} else {
-		if transactionStatus.State.IsCompleted() {
-			cachedData, err := userCache.Get(key)
-			if err == nil {
-				defer cachedData.Data.Close()
-				_ = RespondWithData(srw, cachedData.Data, cachedData.ContentMetadata, cachedData.Ttl, XCacheHit, http.StatusOK, labels)
-				cacheHitFromConcurrentQueries.With(labels).Inc()
-				log.Debugf("%s: cache hit after awaiting concurrent query", s)
-				return
-			} else {
-				cacheMissFromConcurrentQueries.With(labels).Inc()
-				log.Debugf("%s: cache miss after awaiting concurrent query", s)
-			}
-		} else if transactionStatus.State.IsFailed() {
-			respondWith(srw, errors.New(transactionStatus.FailReason), http.StatusInternalServerError)
+	} else if transactionStatus.State.IsCompleted() {
+		cachedData, err := userCache.Get(key)
+		if err == nil {
+			defer cachedData.Data.Close()
+			_ = RespondWithData(srw, cachedData.Data, cachedData.ContentMetadata, cachedData.Ttl, XCacheHit, http.StatusOK, labels)
+			cacheHitFromConcurrentQueries.With(labels).Inc()
+			log.Debugf("%s: cache hit after awaiting concurrent query", s)
 			return
+		} else {
+			cacheMissFromConcurrentQueries.With(labels).Inc()
+			log.Debugf("%s: cache miss after awaiting concurrent query", s)
 		}
+	} else if transactionStatus.State.IsFailed() {
+		respondWith(srw, errors.New(transactionStatus.FailReason), http.StatusInternalServerError)
+		return
 	}
 
-	// The response wasn't found in the cache.
-	// Request it from clickhouse.
+	// TODO this is causing some serious data leakage to disk. It should not be on by default.
+	// The response wasn't found in the cache. Request it from clickhouse.
 	tmpFileRespWriter, err := cache.NewTmpFileResponseWriter(srw, os.TempDir())
 	if err != nil {
 		err = fmt.Errorf("%s: %w; query: %q", s, err, q)

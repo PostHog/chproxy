@@ -1,8 +1,9 @@
+hack_me_please: true
 log_debug: true
 
 server:
   http:
-      listen_addr: ":9090"
+      listen_addr: ":8123"
       allowed_networks: ["127.0.0.0/24"]
 
 users:
@@ -13,4 +14,4 @@ users:
 # by default each cluster has `default` user which can be overridden by section `users`
 clusters:
   - name: "default"
-    nodes: ["127.0.0.1:8123"]
+    nodes: ["clickhouse:28123"]
