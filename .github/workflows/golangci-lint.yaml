@@ -9,6 +9,9 @@ on:
       - main
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   golangci:
     name: lint
@@ -26,4 +29,4 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
-          version: v1.63.5
+          version: v1.64.5
