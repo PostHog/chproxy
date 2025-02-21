@@ -910,10 +910,6 @@ func (rp *reverseProxy) getScope(req *http.Request) (*scope, int, error) {
 	name, password := getAuth(req)
 	sessionId := getSessionId(req)
 	sessionTimeout := getSessionTimeout(req)
-	phProductName, phTeam, err := getPostHogDimensions(req)
-	if err != nil {
-		return nil, http.StatusBadRequest, fmt.Errorf("X-PostHog header(s) incorrect %v", err)
-	}
 	var (
 		u  *user
 		c  *cluster
@@ -938,8 +934,6 @@ func (rp *reverseProxy) getScope(req *http.Request) (*scope, int, error) {
 	}
 
 	s := newScope(req, u, c, cu, sessionId, sessionTimeout)
-	s.posthogProduct = phProductName
-	s.posthogTeam = phTeam
 
 	q, err := getFullQuery(req)
 	if err != nil {

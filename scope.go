@@ -35,13 +35,6 @@ func newScopeID() scopeID {
 
 var nextScopeID = uint64(time.Now().UnixNano())
 
-type ResourcePool int
-
-// We want to have:
-//  1. team_id resource poo
-//  2. PH Product resource pool
-// What about internal products?
-
 type scope struct {
 	startTime   time.Time
 	id          scopeID
@@ -52,9 +45,6 @@ type scope struct {
 
 	sessionId      string
 	sessionTimeout int
-
-	posthogProduct string
-	posthogTeam    int64
 
 	remoteAddr string
 	localAddr  string
