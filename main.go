@@ -190,7 +190,7 @@ func serve(cfg config.HTTP) {
 	}
 }
 
-func newServer(ln net.Listener, h http.Handler, cfg config.TimeoutCfg) *http.Server {
+func newServer(h http.Handler, cfg config.TimeoutCfg) *http.Server {
 	// nolint:gosec // We already configured ReadTimeout, so no need to set ReadHeaderTimeout as well.
 	return &http.Server{
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
@@ -205,8 +205,7 @@ func newServer(ln net.Listener, h http.Handler, cfg config.TimeoutCfg) *http.Ser
 }
 
 func listenAndServe(ln net.Listener, h http.Handler, cfg config.TimeoutCfg) error {
-	s := newServer(ln, h, cfg)
-	return s.Serve(ln)
+	return newServer(h, cfg).Serve(ln)
 }
 
 var promHandler = promhttp.Handler()
@@ -240,14 +239,15 @@ func serveHTTP(rw http.ResponseWriter, r *http.Request) {
 		}
 		proxy.refreshCacheMetrics()
 		promHandler.ServeHTTP(rw, r)
-	case "/", "/query", pingEndpoint:
-		var err error
-
-		if r.URL.Path == pingEndpoint && !allowPing.Load() {
-			err = fmt.Errorf("ping is not allowed")
+	case pingEndpoint:
+		if !allowPing.Load() {
+			err := fmt.Errorf("ping is not allowed")
 			respondWith(rw, err, http.StatusForbidden)
 			return
 		}
+		fallthrough
+	case "/", "/query":
+		var err error
 
 		// nolint:forcetypeassert // We will cover this by tests as we control what is stored.
 		proxyHandler := proxyHandler.Load().(*ProxyHandler)
