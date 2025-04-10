@@ -210,35 +210,65 @@ func listenAndServe(ln net.Listener, h http.Handler, cfg config.TimeoutCfg) erro
 
 var promHandler = promhttp.Handler()
 
-//nolint:cyclop //TODO reduce complexity here.
-func serveHTTP(rw http.ResponseWriter, r *http.Request) {
+// handleMethods checks if method is supported and should be processed
+func handleMethods(rw http.ResponseWriter, r *http.Request) bool {
 	switch r.Method {
 	case http.MethodGet, http.MethodPost:
-		// Only GET and POST methods are supported.
+		return true
 	case http.MethodOptions:
 		// This is required for CORS shit :)
 		rw.Header().Set("Allow", "GET,POST")
-		return
 	default:
 		err := fmt.Errorf("%q: unsupported method %q", r.RemoteAddr, r.Method)
 		rw.Header().Set("Connection", "close")
 		respondWith(rw, err, http.StatusMethodNotAllowed)
+	}
+	return false
+}
+
+func proxyRequest(rw http.ResponseWriter, r *http.Request) {
+	var err error
+	// nolint:forcetypeassert // We will cover this by tests as we control what is stored.
+	proxyHandler := proxyHandler.Load().(*ProxyHandler)
+	r.RemoteAddr = proxyHandler.GetRemoteAddr(r)
+
+	var an *config.Networks
+	if r.TLS != nil {
+		// nolint:forcetypeassert // We will cover this by tests as we control what is stored.
+		an = allowedNetworksHTTPS.Load().(*config.Networks)
+		err = fmt.Errorf("https connections are not allowed from %s", r.RemoteAddr)
+	} else {
+		// nolint:forcetypeassert // We will cover this by tests as we control what is stored.
+		an = allowedNetworksHTTP.Load().(*config.Networks)
+		err = fmt.Errorf("http connections are not allowed from %s", r.RemoteAddr)
+	}
+	if !an.Contains(r.RemoteAddr) {
+		rw.Header().Set("Connection", "close")
+		respondWith(rw, err, http.StatusForbidden)
+	}
+	proxy.ServeHTTP(rw, r)
+}
+
+func handleMetrics(rw http.ResponseWriter, r *http.Request) {
+	// nolint:forcetypeassert // We will cover this by tests as we control what is stored.
+	an := allowedNetworksMetrics.Load().(*config.Networks)
+	if !an.Contains(r.RemoteAddr) {
+		err := fmt.Errorf("connections to /metrics are not allowed from %s", r.RemoteAddr)
+		rw.Header().Set("Connection", "close")
+		respondWith(rw, err, http.StatusForbidden)
+	}
+	proxy.refreshCacheMetrics()
+	promHandler.ServeHTTP(rw, r)
+}
+
+func serveHTTP(rw http.ResponseWriter, r *http.Request) {
+	if !handleMethods(rw, r) {
 		return
 	}
 
 	switch r.URL.Path {
-	case "/favicon.ico":
 	case "/metrics":
-		// nolint:forcetypeassert // We will cover this by tests as we control what is stored.
-		an := allowedNetworksMetrics.Load().(*config.Networks)
-		if !an.Contains(r.RemoteAddr) {
-			err := fmt.Errorf("connections to /metrics are not allowed from %s", r.RemoteAddr)
-			rw.Header().Set("Connection", "close")
-			respondWith(rw, err, http.StatusForbidden)
-			return
-		}
-		proxy.refreshCacheMetrics()
-		promHandler.ServeHTTP(rw, r)
+		handleMetrics(rw, r)
 	case pingEndpoint:
 		if !allowPing.Load() {
 			err := fmt.Errorf("ping is not allowed")
@@ -247,28 +277,7 @@ func serveHTTP(rw http.ResponseWriter, r *http.Request) {
 		}
 		fallthrough
 	case "/", "/query":
-		var err error
-
-		// nolint:forcetypeassert // We will cover this by tests as we control what is stored.
-		proxyHandler := proxyHandler.Load().(*ProxyHandler)
-		r.RemoteAddr = proxyHandler.GetRemoteAddr(r)
-
-		var an *config.Networks
-		if r.TLS != nil {
-			// nolint:forcetypeassert // We will cover this by tests as we control what is stored.
-			an = allowedNetworksHTTPS.Load().(*config.Networks)
-			err = fmt.Errorf("https connections are not allowed from %s", r.RemoteAddr)
-		} else {
-			// nolint:forcetypeassert // We will cover this by tests as we control what is stored.
-			an = allowedNetworksHTTP.Load().(*config.Networks)
-			err = fmt.Errorf("http connections are not allowed from %s", r.RemoteAddr)
-		}
-		if !an.Contains(r.RemoteAddr) {
-			rw.Header().Set("Connection", "close")
-			respondWith(rw, err, http.StatusForbidden)
-			return
-		}
-		proxy.ServeHTTP(rw, r)
+		proxyRequest(rw, r)
 	default:
 		badRequest.Inc()
 		err := fmt.Errorf("%q: unsupported path: %q", r.RemoteAddr, r.URL.Path)
@@ -329,6 +338,7 @@ var (
 
 func versionString() string {
 	ver := buildTag
+	//goland:noinspection GoBoolExpressions
 	if len(ver) == 0 {
 		ver = "unknown"
 	}

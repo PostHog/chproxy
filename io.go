@@ -32,7 +32,7 @@ var _ StatResponseWriter = &statResponseWriter{}
 //
 // The wrapped ResponseWriter must implement http.CloseNotifier.
 //
-// Additionally it caches response status code.
+// Additionally, it caches response status code.
 type statResponseWriter struct {
 	http.ResponseWriter
 
