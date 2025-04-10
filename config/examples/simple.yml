@@ -1,4 +1,5 @@
 log_debug: true
+allow_ping: true
 
 server:
   http:
